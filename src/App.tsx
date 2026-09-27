@@ -27,6 +27,7 @@ import { MessageItem } from "./components/MessageItem";
 import { PinnedPanel } from "./components/PinnedPanel";
 import { CallOverlay } from "./components/CallOverlay";
 import { IdentityModal } from "./components/IdentityModal";
+import { usePinGuard } from "./lib/pin";
 import "./styles.css";
 
 const spaces = ["PA", "DE", "OP", "CR"];
@@ -43,6 +44,7 @@ function App() {
   const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
   const [myPin, setMyPin] = useState("4821093");
   const [call, setCall] = useState<{ kind: "audio" | "video" } | null>(null);
+  const pinGuard = usePinGuard(myPin);
 
   const activeCount = useMemo(() => people.filter((person) => person.status === "online").length, []);
   const pinnedMessages = useMemo(() => messages.filter((message) => message.pinned), [messages]);
@@ -75,10 +77,12 @@ function App() {
   }
 
   /** A locked message unlocks only when the reader enters the account's
-   * 7-digit PIN (set in the Identity panel). Returns whether it matched
-   * so the message bubble can show an error instead of silently failing. */
+   * 7-digit PIN (set in the Identity panel). Routed through the shared
+   * pin guard so repeated wrong guesses lock out ALL locked messages for
+   * a cooldown, not just the one being attacked. */
   function attemptUnlock(id: number, pin: string) {
-    if (pin !== myPin) return false;
+    const ok = pinGuard.verify(pin);
+    if (!ok) return false;
     setRevealedIds((current) => {
       const next = new Set(current);
       next.add(id);
@@ -199,6 +203,8 @@ function App() {
               revealed={revealedIds.has(message.id)}
               onTogglePin={togglePin}
               onUnlockAttempt={attemptUnlock}
+              pinLocked={pinGuard.isLocked}
+              pinLockSeconds={pinGuard.secondsLeft}
             />
           ))}
           <div className="typing"><span /><span /><span /> Amara is typing</div>

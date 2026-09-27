@@ -1,24 +1,41 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Lock, Pin, Reply, SmilePlus } from "lucide-react";
 import { Avatar } from "./Avatar";
 import type { Message } from "../data/mock";
+import { PIN_LENGTH, sanitizePinInput } from "../lib/pin";
 
 type MessageItemProps = {
   message: Message;
   revealed: boolean;
   onTogglePin: (id: number) => void;
   onUnlockAttempt: (id: number, pin: string) => boolean;
+  pinLocked: boolean;
+  pinLockSeconds: number;
 };
 
-export function MessageItem({ message, revealed, onTogglePin, onUnlockAttempt }: MessageItemProps) {
+export function MessageItem({
+  message,
+  revealed,
+  onTogglePin,
+  onUnlockAttempt,
+  pinLocked,
+  pinLockSeconds
+}: MessageItemProps) {
   const [unlocking, setUnlocking] = useState(false);
   const [pinValue, setPinValue] = useState("");
   const [error, setError] = useState(false);
+
+  // If the shared guard locks out mid-attempt (five wrong guesses across
+  // any locked message), drop out of the input state and show the cooldown.
+  useEffect(() => {
+    if (pinLocked) setPinValue("");
+  }, [pinLocked]);
 
   const isLockedAndHidden = message.locked && !revealed;
 
   function submitPin(event: FormEvent) {
     event.preventDefault();
+    if (pinLocked) return;
     const ok = onUnlockAttempt(message.id, pinValue);
     if (ok) {
       setUnlocking(false);
@@ -57,15 +74,16 @@ export function MessageItem({ message, revealed, onTogglePin, onUnlockAttempt }:
                 autoFocus
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={7}
-                placeholder="7-digit PIN"
+                maxLength={PIN_LENGTH}
+                placeholder={`${PIN_LENGTH}-digit PIN`}
                 value={pinValue}
+                disabled={pinLocked}
                 onChange={(event) => {
                   setError(false);
-                  setPinValue(event.target.value.replace(/\D/g, "").slice(0, 7));
+                  setPinValue(sanitizePinInput(event.target.value));
                 }}
               />
-              <button type="submit" disabled={pinValue.length !== 7}>Unlock</button>
+              <button type="submit" disabled={pinLocked || pinValue.length !== PIN_LENGTH}>Unlock</button>
               <button
                 type="button"
                 className="pin-entry-cancel"
@@ -73,12 +91,16 @@ export function MessageItem({ message, revealed, onTogglePin, onUnlockAttempt }:
               >
                 Cancel
               </button>
-              {error && <span className="pin-entry-error">Wrong PIN, try again.</span>}
+              {pinLocked ? (
+                <span className="pin-entry-error">Too many wrong tries. Try again in {pinLockSeconds}s.</span>
+              ) : (
+                error && <span className="pin-entry-error">Wrong PIN, try again.</span>
+              )}
             </form>
           ) : (
             <button className="locked-body" onClick={() => setUnlocking(true)}>
               <Lock size={14} />
-              <span>Locked message — tap to unlock</span>
+              <span>Locked message, tap to unlock</span>
             </button>
           )
         ) : (

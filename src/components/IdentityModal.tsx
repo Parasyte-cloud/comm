@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { KeyRound, X } from "lucide-react";
+import { PIN_LENGTH, sanitizePinInput } from "../lib/pin";
 
 type IdentityModalProps = {
   handle: string;
@@ -14,7 +15,7 @@ export function IdentityModal({ handle, pin, onClose, onSavePin }: IdentityModal
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (draft.length !== 7) return;
+    if (draft.length !== PIN_LENGTH) return;
     onSavePin(draft);
     setSaved(true);
     setTimeout(() => setSaved(false), 1600);
@@ -36,7 +37,7 @@ export function IdentityModal({ handle, pin, onClose, onSavePin }: IdentityModal
         <div className="modal-body">
           <p className="identity-copy">
             People find and add you by your handle. Your PIN is what unlocks any locked
-            message sent to you — treat it like a passcode, not a public detail.
+            message sent to you, treat it like a passcode, not a public detail.
           </p>
 
           <div className="identity-field">
@@ -45,23 +46,24 @@ export function IdentityModal({ handle, pin, onClose, onSavePin }: IdentityModal
           </div>
 
           <form className="identity-field identity-pin-field" onSubmit={submit}>
-            <span>7-digit PIN</span>
+            <span>{PIN_LENGTH}-digit PIN</span>
             <div className="identity-pin-row">
               <input
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={7}
+                maxLength={PIN_LENGTH}
                 value={draft}
-                onChange={(event) => setDraft(event.target.value.replace(/\D/g, "").slice(0, 7))}
+                onChange={(event) => setDraft(sanitizePinInput(event.target.value))}
               />
-              <button type="submit" disabled={draft.length !== 7}>{saved ? "Saved" : "Save"}</button>
+              <button type="submit" disabled={draft.length !== PIN_LENGTH}>{saved ? "Saved" : "Save"}</button>
             </div>
           </form>
 
           <p className="identity-note">
-            This PIN is stored only in this browser session for the demo. In production it
-            should be set during onboarding, hashed server-side, and never stored or
-            transmitted in plain text.
+            5 wrong tries locks unlocking out for 30 seconds, across every locked message,
+            not just the one you're trying. This PIN is stored only in this browser session
+            for the demo. In production it should be set during onboarding, hashed
+            server-side, and never stored or transmitted in plain text.
           </p>
         </div>
       </div>

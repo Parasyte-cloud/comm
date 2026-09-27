@@ -12,7 +12,7 @@ type CallOverlayProps = {
 /**
  * Call surface for PArA.
  *
- * This component only renders local UI state (mute/camera/leave) — it holds no
+ * This component only renders local UI state (mute/camera/leave), it holds no
  * transport of its own. To wire it to real calling:
  *
  *   1. On mount, call your signalling layer (RA-workspace call service, or a

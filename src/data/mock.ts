@@ -25,7 +25,7 @@ export type Person = {
 };
 
 /** The signed-in account. In a real backend this comes from auth, along
- * with a server-issued handle and PIN — both shown here as local state
+ * with a server-issued handle and PIN, both shown here as local state
  * that lives on the account, not on any single device. */
 export const me: Person = {
   name: "You",
@@ -56,7 +56,7 @@ export const initialMessages: Message[] = [
     author: "Amara Okafor",
     handle: "@amara.okafor",
     initials: "AO",
-    body: "Morning team — I pushed the new onboarding flow into the review lane. The biggest change is a calmer first screen with fewer decisions up front.",
+    body: "Morning team, I pushed the new onboarding flow into the review lane. The biggest change is a calmer first screen with fewer decisions up front.",
     time: "09:18",
     pinned: true
   },
@@ -74,7 +74,7 @@ export const initialMessages: Message[] = [
     author: "You",
     handle: me.handle,
     initials: "YO",
-    body: "Perfect. Keep the glass surfaces subtle — I want premium, not noisy. Burgundy should carry the identity while beige keeps it warm.",
+    body: "Perfect. Keep the glass surfaces subtle, I want premium, not noisy. Burgundy should carry the identity while beige keeps it warm.",
     time: "09:31",
     mine: true
   },
