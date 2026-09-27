@@ -1,0 +1,13 @@
+{
+  "name": "RideArrivo Ops, PArA",
+  "short_name": "PArA",
+  "description": "RideArrivo operations on PArA: dispatch, instant rides, wallet and payments, and support.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eadfce",
+  "theme_color": "#5d1826",
+  "icons": [
+    { "src": "/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
