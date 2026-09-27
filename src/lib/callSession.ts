@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 /**
  * Thin client for the `call-session` Supabase Edge Function. That function
  * is the only place holding Cloudflare RealtimeKit credentials, this file
- * never sees them. See PARA-CALLING-SETUP.md for what to deploy and which
+ * never sees them. See PARA-BACKEND-SETUP.md for what to deploy and which
  * secrets the function expects.
  */
 

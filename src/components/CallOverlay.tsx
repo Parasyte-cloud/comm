@@ -1,37 +1,97 @@
-import { useState } from "react";
-import { Mic, MicOff, PhoneOff, ScreenShare, Video, VideoOff } from "lucide-react";
-import type { Person } from "../data/mock";
+import { useEffect, useRef, useState } from "react";
+import { Check, Copy, PhoneOff } from "lucide-react";
+import { RealtimeKitProvider, useRealtimeKitClient } from "@cloudflare/realtimekit-react";
+import { RtkMeeting } from "@cloudflare/realtimekit-react-ui";
+import { createCall, endCall, joinCall, type CallSession } from "../lib/callSession";
 
 type CallOverlayProps = {
   kind: "audio" | "video";
   channelName: string;
-  participants: Person[];
+  myHandle: string;
+  myUserId: string;
+  /** Set when joining a call someone else already started. Omit to start
+   * a brand new one. */
+  joinMeetingId?: string;
   onLeave: () => void;
 };
 
 /**
- * Call surface for PArA.
- *
- * This component only renders local UI state (mute/camera/leave), it holds no
- * transport of its own. To wire it to real calling:
- *
- *   1. On mount, call your signalling layer (RA-workspace call service, or a
- *      WebRTC/SIP gateway) with { channelName, kind, participants } and get
- *      back a session handle.
- *   2. Feed remote audio/video tracks into the tiles below in place of the
- *      placeholder avatars (swap the `.call-tile` divs for <video>/<audio>
- *      elements bound to each participant's MediaStream).
- *   3. Wire `micOn`/`cameraOn` toggles to the session handle's
- *      track.enabled setters, and `onLeave` to session.hangup().
- *
- * Keeping the transport out of this component is deliberate: it lets the
- * same call screen sit behind the web app, the RA-workspace mobile app, or a
- * future desktop client without duplicating UI.
+ * Real call surface for PArA, backed by Cloudflare RealtimeKit, the same
+ * calling provider RA-workspace already runs in production. This talks to
+ * the `call-session` Supabase Edge Function to get a short-lived
+ * participant token, then hands that token to RealtimeKit's own client and
+ * prebuilt meeting UI. See PARA-BACKEND-SETUP.md for what needs deploying
+ * before this works end to end.
  */
-export function CallOverlay({ kind, channelName, participants, onLeave }: CallOverlayProps) {
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(kind === "video");
-  const [elapsed] = useState("00:14");
+export function CallOverlay({ kind, channelName, myHandle, myUserId, joinMeetingId, onLeave }: CallOverlayProps) {
+  const [meeting, initMeeting] = useRealtimeKitClient();
+  const [session, setSession] = useState<CallSession | null>(null);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const sessionRef = useRef<CallSession | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const result = joinMeetingId
+          ? await joinCall(joinMeetingId, myHandle, myUserId)
+          : await createCall(`#${channelName}`, myHandle, myUserId);
+        if (!active) return;
+        sessionRef.current = result;
+        setSession(result);
+        await initMeeting({
+          authToken: result.authToken,
+          defaults: { audio: true, video: kind === "video" }
+        });
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Could not start the call.");
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+    // Runs once per mount, joining/creating again on prop changes would
+    // start a second meeting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // If RealtimeKit itself ends the room (host left, meeting deactivated),
+  // close the overlay instead of leaving a dead call screen up.
+  useEffect(() => {
+    const self = meeting?.self;
+    if (!self) return;
+    const handleRoomLeft = () => onLeave();
+    self.on("roomLeft", handleRoomLeft as never);
+    return () => {
+      self.removeListener("roomLeft", handleRoomLeft as never);
+    };
+  }, [meeting, onLeave]);
+
+  async function leave() {
+    try {
+      await meeting?.leave();
+    } catch {
+      // Leaving regardless of whether the SDK call succeeded.
+    }
+    if (sessionRef.current?.role === "host") {
+      endCall(sessionRef.current.meetingId).catch(() => {});
+    }
+    onLeave();
+  }
+
+  function copyCode() {
+    if (!session) return;
+    navigator.clipboard
+      ?.writeText(session.meetingId)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => {});
+  }
 
   return (
     <div className="call-overlay">
@@ -41,44 +101,36 @@ export function CallOverlay({ kind, channelName, participants, onLeave }: CallOv
             <span className="eyebrow">{kind === "video" ? "Video call" : "Voice call"}</span>
             <strong>#{channelName}</strong>
           </div>
-          <span className="call-timer">{elapsed}</span>
+          {session && (
+            <button className="call-code" onClick={copyCode} title="Copy meeting code to invite someone">
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              {session.meetingId.slice(0, 8)}
+            </button>
+          )}
         </div>
 
-        <div className="call-grid">
-          <div className="call-tile call-tile--self">
-            <div className="call-avatar">YO</div>
-            <span className="call-name">You {!micOn && <MicOff size={11} />}</span>
-          </div>
-          {participants.map((person) => (
-            <div className="call-tile" key={person.name}>
-              <div className="call-avatar">{person.initials}</div>
-              <span className="call-name">{person.name.split(" ")[0]}</span>
-              <span className={`presence presence--${person.status} call-tile-presence`} />
+        <div className="call-surface">
+          {error ? (
+            <div className="call-state call-state--error">
+              <p>{error}</p>
+              <button className="call-control call-control--leave" onClick={onLeave}>
+                Close
+              </button>
             </div>
-          ))}
+          ) : !meeting ? (
+            <div className="call-state">
+              <div className="call-spinner" />
+              <p>Connecting...</p>
+            </div>
+          ) : (
+            <RealtimeKitProvider value={meeting}>
+              <RtkMeeting meeting={meeting} mode="fill" showSetupScreen leaveOnUnmount={false} />
+            </RealtimeKitProvider>
+          )}
         </div>
 
         <div className="call-controls">
-          <button
-            className={`call-control ${micOn ? "" : "is-off"}`}
-            onClick={() => setMicOn((value) => !value)}
-            title={micOn ? "Mute microphone" : "Unmute microphone"}
-          >
-            {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-          </button>
-          {kind === "video" && (
-            <button
-              className={`call-control ${cameraOn ? "" : "is-off"}`}
-              onClick={() => setCameraOn((value) => !value)}
-              title={cameraOn ? "Turn camera off" : "Turn camera on"}
-            >
-              {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
-            </button>
-          )}
-          <button className="call-control" title="Share screen">
-            <ScreenShare size={18} />
-          </button>
-          <button className="call-control call-control--leave" onClick={onLeave} title="Leave call">
+          <button className="call-control call-control--leave" onClick={leave} title="Leave call">
             <PhoneOff size={18} />
           </button>
         </div>

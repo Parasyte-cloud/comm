@@ -9,13 +9,14 @@ A premium communication UI inspired by the best interaction patterns from team w
 - Direct messages with presence states
 - Responsive desktop/mobile layout
 - Channel header with voice/video actions
-- Chat composer with working local demo messages
+- **Real accounts**, sign in with a magic link to your work email (Supabase Auth), no shared local identity, two people in two browsers are genuinely two different accounts
+- **Real-time chat**, channels and DMs are backed by Postgres (Supabase) with row-level security and a realtime subscription, a message sent in one browser shows up in another within a second or two, no refresh
 - Channel details, members and shared-media rail
-- **Pinned messages**, pin any message from its hover menu, see a live count in the sidebar, and browse everything pinned in a dedicated panel
-- **@handle identity + 7-digit PIN**, every person has a unique `@handle` (shown next to their name everywhere), and the signed-in account has a private 7-digit PIN, set from the Identity panel (gear icon in the rail)
-- **Locked messages**, send a message as locked (vault-style); it renders blurred behind a "tap to unlock" bubble, and unlocking it requires typing the account's 7-digit PIN, not just a tap, this is what makes "pinned" and "locked" two genuinely different things instead of both meaning the same "pin"
-- **Call overlay**, a voice/video call surface (mute, camera, screen-share, leave) that is deliberately transport-agnostic, built as the drop-in point for real calling
-- Huddle/call concept card wired to the call overlay
+- **Pinned messages**, pin any message from its hover menu, see a live count in the sidebar, and browse everything pinned in a dedicated panel, synced for everyone who can see that conversation
+- **@handle identity + 7-digit PIN**, every person has a unique `@handle` (shown next to their name everywhere), and the signed-in account has a private 7-digit PIN, set from the Identity panel (gear icon in the rail) and verified server-side, the PIN itself never reaches any client once set
+- **Locked messages**, send a message as locked (vault-style); it renders blurred behind a "tap to unlock" bubble, and unlocking it requires typing the account's 7-digit PIN, checked against the server, not just a tap, this is what makes "pinned" and "locked" two genuinely different things instead of both meaning the same "pin"
+- **Real calling**, backed by Cloudflare RealtimeKit (the same provider RA-workspace runs in production), not a mock. Start a call from the header, share the meeting code, join from another browser. See PARA-BACKEND-SETUP.md to wire up your own Supabase project and RealtimeKit credentials
+- Huddle card and "Join a call" wired to the real call flow
 - Clean React + TypeScript + Vite structure
 
 ## Run
@@ -47,47 +48,53 @@ explicit about since "pin" and "PIN" collide:
   from the Identity panel, opened via the Settings gear in the left rail). It is the
   unlock key for **locked** messages: composing with the lock toggle on flags a message
   `locked: true`; anyone who opens it sees a blurred bubble and must type the 7-digit
-  PIN to reveal it. In this demo it checks against the viewer's own local `myPin` state
-  in `App.tsx` (single-user, no backend yet), the realistic version is per-account,
-  set at signup, and checked server-side (or better, used to derive a decryption key
-  client-side so the server never sees plaintext).
+  PIN to reveal it. The PIN is hashed and checked server-side (`set_own_pin` /
+  `verify_own_pin` in `supabase/migrations/0001_chat_backend.sql`), no client, including
+  the one that set it, ever gets the real value back. See `PARA-PIN-MODEL.md` for what's
+  still simplified (lockout is per-tab, not per-account yet) versus real encryption.
 
-Both `people[].handle` and the account's PIN live in `src/data/mock.ts` /
-`App.tsx`'s `myPin` state, swap those for real user records once there's an auth
-backend, keeping the same shape (`{ name, handle, ... }`) so the components don't change.
+Accounts, handles and channels are real rows in Postgres now (`profiles`, `channels`,
+`messages`), see `src/lib/db.ts` for every read/write and `src/types.ts` for their
+shapes. There's no more local mock data to swap out.
 
-## Wiring PArA into RA-workspace calling
+## Calling, and how it matches RA-workspace
 
-`src/components/CallOverlay.tsx` is the integration seam for real calls. It currently
-renders local-only UI state (mic/camera toggles, a fake timer, static participant
-tiles) and takes no dependency on any specific calling backend. To make calls real:
+`src/components/CallOverlay.tsx` is real, not a mock: it calls the
+`call-session` Supabase Edge Function to mint a Cloudflare RealtimeKit
+participant token, then hands that token to RealtimeKit's own client and
+prebuilt meeting UI (`@cloudflare/realtimekit-react` + `-react-ui`). This is
+the same provider and the same token-minting pattern RA-workspace's
+`room-session` function already runs in production, comm intentionally uses
+its own Supabase project and its own edge function rather than sharing
+RA-workspace's, so the two stay independently deployable while still
+running on the same calling infrastructure underneath. See
+PARA-BACKEND-SETUP.md for the full setup (Supabase project, RealtimeKit
+credentials, environment variables).
 
-1. On mount, hand the call session to your signalling layer, the RA-workspace call
-   service, a WebRTC SFU, or a SIP/PSTN gateway, with `{ channelName, kind, participants }`
-   and get back a session handle (local stream + remote stream map).
-2. Replace the placeholder `.call-tile` divs with `<video>`/`<audio>` elements bound
-   to each participant's `MediaStream`.
-3. Wire the `micOn` / `cameraOn` toggles to that session handle's `track.enabled`
-   setters, and `onLeave` to `session.hangup()`.
+A person's `@handle` becomes their display name inside the call (passed as
+the participant's `name` when the edge function adds them to the meeting),
+and the PIN model (`src/lib/pin.ts`) is available to gate joining a
+sensitive call the same way it gates unlocking a message, not wired up by
+default, but the same `usePinGuard` instance can cover both.
 
-Keeping the transport out of the component means the same call screen can sit behind
-the web app, the RA-workspace mobile app, or a future desktop client without
-duplicating UI.
+## What's real now, and what's next
 
-## Recommended production backend
+Real: accounts (Supabase Auth, magic link), channels and DMs backed by Postgres with
+row-level security, realtime sync across devices, server-verified PINs, and calling
+over Cloudflare RealtimeKit. See PARA-BACKEND-SETUP.md to turn all of that on for your
+own Supabase project, it does nothing until that's done.
 
-For the real app, add:
+Still ahead:
 
-- Supabase Auth or Clerk for identity
-- Postgres + row-level security for channels, messages, pins
-- WebSocket/realtime transport (Supabase Realtime, Ably, or a custom socket server)
-- WebRTC (or the RA-workspace call service) for voice/video, replacing the mock `CallOverlay`
-- Object storage for attachments
+- An invite flow (today, a new account is created by signing in once, there's no
+  "invite a teammate" screen)
+- Object storage for attachments (the paperclip button is still a "coming soon" toast)
+- Automatic presence (online/away/offline is set by hand in Identity, not idle-detected)
 - Push notifications
-- A real encryption strategy for locked messages and private DMs (the current
-  "locked" feature is a client-side reveal-on-tap UI, not encryption, treat it as
-  the UI shell for whatever key-management approach you land on)
+- Real encryption for locked messages (currently a server-verified UI gate, the body
+  itself is stored in plain text, see `PARA-PIN-MODEL.md`)
 - Audit logs, rate limits and abuse controls
+- A `channel_members` table if PArA outgrows "anyone can read/post in any channel"
 
 PArA should stay visually original rather than cloning Slack, Discord or WhatsApp
 branding/UI exactly.

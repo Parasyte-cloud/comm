@@ -56,7 +56,9 @@ button { color: inherit; }
 .brand-mark {
   width: 48px; height: 48px; border-radius: 18px; color: #fff8ef; font: 700 23px/1 "Manrope";
   background: linear-gradient(145deg, #742138, #4b101f); box-shadow: 0 14px 28px rgba(86, 21, 36, .27); cursor: pointer;
+  display: grid; place-items: center; padding: 0; overflow: hidden;
 }
+.brand-mark img { width: 100%; height: 100%; object-fit: cover; }
 .rail-divider { width: 28px; height: 1px; background: rgba(87,31,43,.16); margin: 2px 0 4px; }
 .space-dot { width: 43px; height: 43px; border-radius: 16px; background: rgba(255,255,255,.38); color: #704554; cursor: pointer; font-weight: 700; transition: .2s ease; }
 .space-dot:hover, .space-dot.is-active { background: rgba(101,26,43,.11); color: var(--burgundy); transform: translateY(-1px); }
@@ -227,23 +229,23 @@ kbd { font-family: inherit; font-size: 10px; border-radius: 7px; padding: 3px 6p
 .pinned-row p { margin: 5px 0 8px; font-size: 12px; line-height: 1.5; color: #5d494d; }
 .pinned-unpin { border-radius: 9px; padding: 5px 9px; background: rgba(101,26,43,.09); color: var(--burgundy); font-size: 10px; font-weight: 700; cursor: pointer; }
 
-/* Call overlay */
+/* Call overlay (real Cloudflare RealtimeKit meeting, not a mock) */
 .call-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 50% 20%, rgba(101,26,43,.35), rgba(30,8,14,.82) 70%); }
-.call-frame { width: min(640px, 100%); border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 18px; background: rgba(40,13,20,.62); border-color: rgba(255,255,255,.12); }
+.call-frame { width: min(920px, 100%); height: min(640px, 88vh); border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 14px; background: rgba(40,13,20,.62); border-color: rgba(255,255,255,.12); }
 .call-head { display: flex; align-items: center; justify-content: space-between; color: #f6ebe1; }
 .call-head .eyebrow { color: rgba(246,235,225,.6); }
 .call-head strong { font: 700 17px Manrope; }
-.call-timer { font-size: 11px; color: rgba(246,235,225,.7); font-variant-numeric: tabular-nums; }
-.call-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
-.call-tile { position: relative; aspect-ratio: 4/3; border-radius: 18px; display: grid; place-items: center; gap: 8px; background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); border: 1px solid rgba(255,255,255,.1); }
-.call-tile--self { border-color: rgba(255,255,255,.22); }
-.call-avatar { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: linear-gradient(145deg,#f5e8d7,#d7bca8); color: #5b2130; font-weight: 700; font-size: 13px; }
-.call-name { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #f0e3da; }
-.call-tile-presence { position: absolute; top: 10px; right: 10px; }
+.call-code { display: inline-flex; align-items: center; gap: 6px; border-radius: 10px; padding: 6px 10px; background: rgba(255,255,255,.12); color: #f6ebe1; font-size: 10px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.call-code:hover { background: rgba(255,255,255,.2); }
+.call-surface { flex: 1; min-height: 0; border-radius: 18px; overflow: hidden; background: rgba(20,7,11,.5); position: relative; }
+.call-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #f0e3da; text-align: center; padding: 0 24px; }
+.call-state p { margin: 0; font-size: 12px; line-height: 1.6; color: rgba(240,227,218,.8); }
+.call-state--error .call-control--leave { position: static; }
+.call-spinner { width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.18); border-top-color: #f0e3da; animation: call-spin 0.9s linear infinite; }
+@keyframes call-spin { to { transform: rotate(360deg); } }
 .call-controls { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .call-control { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; background: rgba(255,255,255,.12); color: #f6ebe1; cursor: pointer; transition: .15s ease; }
 .call-control:hover { background: rgba(255,255,255,.2); }
-.call-control.is-off { background: rgba(255,255,255,.28); color: #2d0f16; }
 .call-control--leave { background: #c23a3a; }
 .call-control--leave:hover { background: #d64848; }
 
@@ -276,6 +278,95 @@ kbd { font-family: inherit; font-size: 10px; border-radius: 7px; padding: 3px 6p
 .identity-pin-row button { border-radius: 10px; padding: 0 14px; background: var(--burgundy); color: white; font-size: 11px; font-weight: 700; cursor: pointer; }
 .identity-pin-row button:disabled { opacity: .45; cursor: not-allowed; }
 .identity-note { margin: 0; font-size: 10px; line-height: 1.6; color: #a08b8f; }
+
+/* Live search box (sidebar) */
+.search-box--live { cursor: text; }
+.search-box--live input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #44252d; font-size: 13px; padding: 0; }
+.search-box--live input::placeholder { color: #aa9699; }
+.search-clear { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: rgba(101,26,43,.08); color: #7d5f65; cursor: pointer; flex: 0 0 auto; }
+.search-clear:hover { background: rgba(101,26,43,.16); color: var(--burgundy); }
+
+/* Empty-state hints (no search matches, no messages yet) */
+.empty-hint { margin: 10px 8px; font-size: 11px; color: #9c8589; }
+.empty-hint--conversation { margin: 0 0 16px; font-size: 12px; text-align: center; }
+
+/* Members modal rows (button-based, mirrors .member-row look) */
+.member-row-modal { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 11px; border-radius: 14px; background: rgba(255,255,255,.34); text-align: left; cursor: pointer; transition: .15s ease; }
+.member-row-modal:hover { background: rgba(255,255,255,.55); }
+.member-row-modal-info { display: grid; gap: 2px; }
+.member-row-modal-info strong { font-size: 12px; color: #4a2931; }
+.member-row-modal-info span { font-size: 10px; color: #998286; }
+
+/* Button reset for the details-panel member row (now a <button>) */
+.member-row { width: 100%; background: transparent; text-align: left; cursor: pointer; border-radius: 12px; padding: 4px; transition: .15s ease; }
+.member-row:hover { background: rgba(255,255,255,.34); }
+
+/* Create-channel modal slug preview */
+.create-channel-preview { font-size: 11px; color: var(--burgundy); font-weight: 700; }
+
+/* Pinned panel: which conversation a pin came from */
+.pinned-row-conv { font-size: 9px; color: var(--burgundy); background: rgba(101,26,43,.08); padding: 1px 6px; border-radius: 7px; font-weight: 700; }
+
+/* Toast: brief, honest feedback for not-yet-built actions */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(40,13,20,.92);
+  color: #f6ebe1;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 18px 40px rgba(40,13,20,.35);
+  animation: toast-in .2s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Sign-in gate */
+.signin-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 8% 6%, rgba(135, 47, 68, .20), transparent 31%),
+    radial-gradient(circle at 95% 92%, rgba(95, 24, 41, .16), transparent 28%),
+    linear-gradient(135deg, #f0e7da 0%, #e9dbc9 50%, #e1cfbd 100%);
+}
+.signin-card { position: relative; z-index: 1; width: min(380px, 100%); padding: 34px 30px; border-radius: 26px; text-align: center; }
+.signin-logo { width: 56px; height: 56px; border-radius: 18px; object-fit: cover; margin: 0 auto 16px; display: block; box-shadow: 0 14px 28px rgba(86,21,36,.2); }
+.signin-card h1 { margin: 0 0 6px; font: 700 21px Manrope; color: #3f2028; }
+.signin-copy { margin: 0 0 22px; color: #8c7479; font-size: 13px; }
+.signin-form { display: grid; gap: 12px; }
+.signin-field { display: flex; align-items: center; gap: 9px; padding: 11px 13px; border-radius: 14px; background: rgba(255,255,255,.55); border: 1px solid rgba(101,26,43,.12); color: #7d6469; text-align: left; }
+.signin-field input { flex: 1; border: 0; outline: 0; background: transparent; color: #3f2028; font-size: 14px; }
+.signin-field input::placeholder { color: #b0999c; }
+.signin-form button[type="submit"] { border-radius: 13px; padding: 11px; background: linear-gradient(145deg, #722039, #4b101f); color: white; font-weight: 700; font-size: 13px; cursor: pointer; box-shadow: 0 12px 24px rgba(79,17,31,.2); }
+.signin-form button[type="submit"]:disabled { opacity: .6; cursor: not-allowed; }
+.signin-error { font-size: 11px; color: #c23a3a; }
+.signin-sent { display: grid; gap: 14px; }
+.signin-sent p { margin: 0; font-size: 13px; line-height: 1.6; color: #6e575c; }
+.signin-resend { background: transparent; color: var(--burgundy); font-size: 12px; font-weight: 700; cursor: pointer; justify-self: center; }
+
+/* Full-screen loading / boot error state */
+.loading-screen { min-height: 100vh; display: grid; place-items: center; gap: 14px; background: linear-gradient(135deg, #f0e7da 0%, #e9dbc9 50%, #e1cfbd 100%); }
+.loading-screen .call-spinner { border-color: rgba(101,26,43,.18); border-top-color: var(--burgundy); }
+.loading-error { max-width: 360px; text-align: center; padding: 0 20px; color: #6e575c; font-size: 13px; line-height: 1.6; }
+
+/* Identity modal: profile fields, status picker, sign out */
+.identity-field + .identity-field { margin-top: 2px; }
+.identity-field input { flex: 1; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(101,26,43,.14); background: rgba(255,255,255,.7); font-size: 13px; color: #3f2028; outline: none; }
+.identity-field input:focus { border-color: var(--burgundy); }
+.identity-status-row { display: flex; gap: 6px; }
+.identity-status-option { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.5); color: #6e575c; font-size: 11px; cursor: pointer; border: 1px solid transparent; }
+.identity-status-option.is-active { border-color: rgba(101,26,43,.25); color: var(--burgundy); background: rgba(101,26,43,.08); font-weight: 700; }
+.identity-save-profile { margin-top: 4px; border-radius: 10px; padding: 8px 12px; background: rgba(101,26,43,.09); color: var(--burgundy); font-size: 11px; font-weight: 700; cursor: pointer; justify-self: start; }
+.identity-signout { margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; background: transparent; color: #c23a3a; font-size: 12px; font-weight: 700; cursor: pointer; }
 
 @media (max-width: 540px) {
   .chat-subtitle { display: none; }

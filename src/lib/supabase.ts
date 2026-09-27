@@ -8,7 +8,7 @@ if (!url || !anonKey) {
   // warning just makes the missing setup obvious in the console instead of
   // a cryptic network error the first time someone taps the video icon.
   console.warn(
-    "[PArA] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set. Calling will not work until comm has its own Supabase project wired up. See PARA-CALLING-SETUP.md."
+    "[PArA] VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set. Calling will not work until comm has its own Supabase project wired up. See PARA-BACKEND-SETUP.md."
   );
 }
 

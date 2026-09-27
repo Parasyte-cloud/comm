@@ -14,7 +14,10 @@
     "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest"
+    "lucide-react": "latest",
+    "@cloudflare/realtimekit-react": "^2.0.2",
+    "@cloudflare/realtimekit-react-ui": "^2.0.2",
+    "@supabase/supabase-js": "^2.57.4"
   },
   "devDependencies": {
     "@types/react": "latest",

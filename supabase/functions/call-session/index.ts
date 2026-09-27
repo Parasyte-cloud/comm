@@ -15,7 +15,7 @@
 //   CLOUDFLARE_REALTIMEKIT_HOST_PRESET
 //   CLOUDFLARE_REALTIMEKIT_PARTICIPANT_PRESET
 //
-// See PARA-CALLING-SETUP.md at the repo root for the full setup walkthrough.
+// See PARA-BACKEND-SETUP.md at the repo root for the full setup walkthrough.
 
 type MediaConfig = {
   accountId: string;
@@ -129,7 +129,7 @@ Deno.serve(async (request: Request) => {
   const config = getMediaConfig();
   if (!config) {
     return json(500, {
-      error: "Calling is not configured yet. Set the CLOUDFLARE_REALTIMEKIT_* secrets, see PARA-CALLING-SETUP.md."
+      error: "Calling is not configured yet. Set the CLOUDFLARE_REALTIMEKIT_* secrets, see PARA-BACKEND-SETUP.md."
     });
   }
 

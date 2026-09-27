@@ -1,14 +1,15 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Lock, Pin, Reply, SmilePlus } from "lucide-react";
 import { Avatar } from "./Avatar";
-import type { Message } from "../data/mock";
+import type { Message } from "../types";
 import { PIN_LENGTH, sanitizePinInput } from "../lib/pin";
 
 type MessageItemProps = {
   message: Message;
   revealed: boolean;
   onTogglePin: (id: number) => void;
-  onUnlockAttempt: (id: number, pin: string) => boolean;
+  onUnlockAttempt: (id: number, pin: string) => Promise<boolean>;
+  onReact: (id: number) => void;
   pinLocked: boolean;
   pinLockSeconds: number;
 };
@@ -18,12 +19,14 @@ export function MessageItem({
   revealed,
   onTogglePin,
   onUnlockAttempt,
+  onReact,
   pinLocked,
   pinLockSeconds
 }: MessageItemProps) {
   const [unlocking, setUnlocking] = useState(false);
   const [pinValue, setPinValue] = useState("");
   const [error, setError] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   // If the shared guard locks out mid-attempt (five wrong guesses across
   // any locked message), drop out of the input state and show the cooldown.
@@ -33,17 +36,22 @@ export function MessageItem({
 
   const isLockedAndHidden = message.locked && !revealed;
 
-  function submitPin(event: FormEvent) {
+  async function submitPin(event: FormEvent) {
     event.preventDefault();
-    if (pinLocked) return;
-    const ok = onUnlockAttempt(message.id, pinValue);
-    if (ok) {
-      setUnlocking(false);
-      setPinValue("");
-      setError(false);
-    } else {
-      setError(true);
-      setPinValue("");
+    if (pinLocked || checking) return;
+    setChecking(true);
+    try {
+      const ok = await onUnlockAttempt(message.id, pinValue);
+      if (ok) {
+        setUnlocking(false);
+        setPinValue("");
+        setError(false);
+      } else {
+        setError(true);
+        setPinValue("");
+      }
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -77,13 +85,15 @@ export function MessageItem({
                 maxLength={PIN_LENGTH}
                 placeholder={`${PIN_LENGTH}-digit PIN`}
                 value={pinValue}
-                disabled={pinLocked}
+                disabled={pinLocked || checking}
                 onChange={(event) => {
                   setError(false);
                   setPinValue(sanitizePinInput(event.target.value));
                 }}
               />
-              <button type="submit" disabled={pinLocked || pinValue.length !== PIN_LENGTH}>Unlock</button>
+              <button type="submit" disabled={pinLocked || checking || pinValue.length !== PIN_LENGTH}>
+                {checking ? "Checking..." : "Unlock"}
+              </button>
               <button
                 type="button"
                 className="pin-entry-cancel"
@@ -107,7 +117,11 @@ export function MessageItem({
           <p className={message.locked ? "revealed-body" : undefined}>{message.body}</p>
         )}
 
-        {message.reaction && <button className="reaction">{message.reaction}</button>}
+        {message.reaction && (
+          <button className="reaction" onClick={() => onReact(message.id)} title="Add your reaction">
+            {message.reaction} {message.reactionCount ?? 1}
+          </button>
+        )}
 
         <div className="message-actions">
           <button
@@ -117,10 +131,10 @@ export function MessageItem({
           >
             <Pin size={13} />
           </button>
-          <button className="message-action" title="Reply in thread">
+          <button className="message-action" title="Threaded replies are coming soon">
             <Reply size={13} />
           </button>
-          <button className="message-action" title="Add reaction">
+          <button className="message-action" onClick={() => onReact(message.id)} title="React">
             <SmilePlus size={13} />
           </button>
         </div>

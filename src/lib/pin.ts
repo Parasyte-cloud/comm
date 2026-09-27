@@ -11,16 +11,19 @@ import { useCallback, useEffect, useState } from "react";
  * instead of reinventing them slightly differently each time.
  *
  * Two identifiers, two different jobs:
- *   - HANDLE  → public, stable, shareable. "Who is this." Never secret.
- *   - PIN     → private, 7 digits, guessable-but-rate-limited. "Prove it's
+ *   - HANDLE  -> public, stable, shareable. "Who is this." Never secret.
+ *   - PIN     -> private, 7 digits, guessable-but-rate-limited. "Prove it's
  *               you, right now." Never shown, never logged, never sent
  *               anywhere in plaintext outside of the verify request itself.
  *
- * This file is the CLIENT-SIDE half: format rules and a lockout guard so
- * the UI can't be brute-forced by mashing the unlock button. It is NOT the
- * security boundary, a client can always be patched to skip its own
- * checks. The real boundary is server-side (see "Moving this to a real
- * backend" below). Treat everything here as UX, not protection.
+ * The PIN itself is set and checked server-side (see set_own_pin and
+ * verify_own_pin in supabase/migrations/0001_chat_backend.sql). The client
+ * only ever sends a candidate guess over an authenticated request and gets
+ * back true or false, it never holds, sees, or compares the real PIN. This
+ * file is the CLIENT-SIDE half: format rules and a lockout guard so the UI
+ * can't be brute-forced by mashing the unlock button. The lockout itself is
+ * still per-browser-tab, not per-account, see the note at the bottom for
+ * what closing that gap looks like.
  */
 
 export const PIN_LENGTH = 7;
@@ -42,12 +45,12 @@ type PinGuardState = {
   secondsLeft: number;
   /** Attempts left before the next lockout kicks in. */
   attemptsLeft: number;
-  /** Check a candidate PIN. Always returns false while locked, and counts
-   *  every wrong guess toward the lockout regardless of which message,
-   *  call, or action prompted it, the guard is per-account, not per-item,
-   *  because the thing being protected is "can this device brute-force my
-   *  PIN," not any single message. */
-  verify: (candidate: string) => boolean;
+  /** Check a candidate PIN against the server. Always resolves false while
+   *  locked, and counts every wrong guess toward the lockout regardless of
+   *  which message, call, or action prompted it, the guard is per-account,
+   *  not per-item, because the thing being protected is "can this device
+   *  brute-force my PIN," not any single message. */
+  verify: (candidate: string) => Promise<boolean>;
 };
 
 /**
@@ -55,8 +58,11 @@ type PinGuardState = {
  * top of the app (not per-message) and pass `verify`/`isLocked`/
  * `secondsLeft` down to whatever surface needs a PIN prompt, a locked
  * message, a "confirm before joining this call" step, a wallet approval.
+ *
+ * `verifyRemote` does the actual check, wired to verify_own_pin() so the
+ * real PIN never leaves the server.
  */
-export function usePinGuard(correctPin: string): PinGuardState {
+export function usePinGuard(verifyRemote: (candidate: string) => Promise<boolean>): PinGuardState {
   const [attempts, setAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -79,9 +85,10 @@ export function usePinGuard(correctPin: string): PinGuardState {
   const isLocked = lockedUntil !== null && lockedUntil > Date.now();
 
   const verify = useCallback(
-    (candidate: string) => {
+    async (candidate: string) => {
       if (isLocked) return false;
-      if (candidate === correctPin) {
+      const ok = await verifyRemote(candidate);
+      if (ok) {
         setAttempts(0);
         return true;
       }
@@ -94,28 +101,29 @@ export function usePinGuard(correctPin: string): PinGuardState {
       });
       return false;
     },
-    [correctPin, isLocked]
+    [verifyRemote, isLocked]
   );
 
   return { isLocked, secondsLeft, attemptsLeft: Math.max(0, MAX_ATTEMPTS - attempts), verify };
 }
 
 /**
- * Moving this to a real backend
- * -----------------------------
- * 1. Never store the PIN itself. Store a salted hash (bcrypt/argon2) on the
- *    account row, set at onboarding and changed only after re-auth.
- * 2. `verify` becomes a network call: POST /api/pin/verify { candidate }.
- *    The server holds the attempt counter and lockout timestamp per
- *    account (not per browser tab, a cleared localStorage shouldn't
- *    reset a lockout), and returns { ok, attemptsLeft, lockedUntil }.
- * 3. Rate-limit at the network layer too (per-IP and per-account), so the
- *    lockout isn't the only thing standing between an attacker and 10^7
- *    guesses.
- * 4. For locked-message content specifically, consider going further than
+ * What's still simplified, and what closing the gap looks like
+ * --------------------------------------------------------------
+ * 1. The lockout counter lives in this browser tab's React state. Closing
+ *    the tab resets it. Moving it server-side means verify_own_pin itself
+ *    tracks attempts and a locked_until timestamp on the profile row, and
+ *    returns that state instead of a bare boolean, so a cleared tab or a
+ *    second device doesn't get a fresh set of guesses.
+ * 2. Add rate limiting at the network layer too (per-IP and per-account, a
+ *    Supabase Edge Function in front of the RPC, or a database function
+ *    with its own counter table), so the lockout isn't the only thing
+ *    standing between an attacker and 10^7 guesses.
+ * 3. For locked-message content specifically, consider going further than
  *    "PIN gates a reveal": derive a symmetric key from the PIN (or a key
  *    the PIN unlocks) and actually encrypt the message body at rest, so a
  *    database leak doesn't hand over locked content in plaintext. The
- *    current version is a UI gate, not encryption, call it that
- *    explicitly wherever compliance/security review happens.
+ *    current version is a UI gate backed by a real server-side check, not
+ *    encryption, call it that explicitly wherever compliance or security
+ *    review happens.
  */

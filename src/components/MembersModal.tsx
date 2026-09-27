@@ -1,6 +1,6 @@
 import { Users, X } from "lucide-react";
 import { Avatar } from "./Avatar";
-import type { Person } from "../data/mock";
+import type { Person } from "../types";
 
 type MembersModalProps = {
   people: Person[];
